@@ -1,4 +1,4 @@
-## ALOFT: A Lightweight MLP-like Architecture with Dynamic Low-Frequency Transform for Domain Generalization
+## ALOFT: A Lightweight MLP-like Architecture with Dynamic Low-frequency Transform for Domain Generalization
 
 ### Requirements
 
