@@ -37,3 +37,9 @@ You can also train the ALOFT-S model by running the following code:
 ```
 base ALOFT-S.sh
 ```
+
+### Acknowledgement
+Part of our code is borrowed from the following repositories.
+* GFNet: "Global Filter Networks for Image Classification", NeurIPS 2021
+* DSU: "Uncertainty modeling for out-of-distribution generalization", ICLR 2022
+We thank to the authors for releasing their codes. Please also consider citing their works.
