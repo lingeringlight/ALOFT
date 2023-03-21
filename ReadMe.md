@@ -40,7 +40,7 @@ base ALOFT-S.sh
 
 ### Acknowledgement
 Part of our code is borrowed from the following repositories.
-* GFNet: "Global Filter Networks for Image Classification", NeurIPS 2021
-* DSU: "Uncertainty modeling for out-of-distribution generalization", ICLR 2022
+* [GFNet](https://github.com/raoyongming/GFNet): "Global Filter Networks for Image Classification", NeurIPS 2021
+* [DSU](https://github.com/lixiaotong97/DSU): "Uncertainty modeling for out-of-distribution generalization", ICLR 2022
 
 We thank to the authors for releasing their codes. Please also consider citing their works.
