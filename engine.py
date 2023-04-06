@@ -56,17 +56,14 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
                     model_ema: Optional[ModelEma] = None, mixup_fn: Optional[Mixup] = None,
-                    set_training_mode=True, patch_domain_mix=0, patch_layer=0, patch_layer_random=0,
-                    R_Consistency=0, patch_layer_random_layers=3):
+                    set_training_mode=True):
     model.train(set_training_mode)
-    model.Fourier_training()
 
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
     print_freq = 200
 
-    # for samples, targets in metric_logger.log_every(data_loader, print_freq, header):
     for (samples, targets), domains in metric_logger.log_every(data_loader, print_freq, header):
         samples = samples.to(device, non_blocking=True)
         targets = targets.to(device, non_blocking=True)
@@ -75,20 +72,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
             samples, targets = mixup_fn(samples, targets)
 
         with torch.cuda.amp.autocast():
-            if patch_domain_mix != 0 and patch_layer_random == 1:
-                patch_layer = random.randint(a=0, b=patch_layer_random_layers)
-            outputs, [lam, perm] = model(samples, patch_layer=patch_layer)
-            if patch_domain_mix != 0:
-                # loss = mixup_criterion(outputs, targets, lam, perm)
-                loss = lam * criterion(samples, outputs, targets) + (1 - lam) * criterion(samples, outputs, targets[perm])
-            else:
-                loss = criterion(samples, outputs, targets.long())
-
-            if R_Consistency == 1:
-                outputs_1, [lam, perm] = model(samples, patch_layer=patch_layer)
-                loss_1 = criterion(samples, outputs_1, targets)
-                kl_loss = compute_kl_loss(outputs, outputs_1, T=5)
-                loss = loss + loss_1 + kl_loss
+            outputs = model(samples)
+            loss = criterion(samples, outputs, targets.long())
 
         loss_value = loss.item()
 
@@ -124,7 +109,6 @@ def evaluate(data_loader, model, device):
 
     # switch to evaluation mode
     model.eval()
-    model.Fourier_eval()
 
     for (images, target), _ in metric_logger.log_every(data_loader, 200, header):
         images = images.to(device, non_blocking=True)
@@ -132,7 +116,7 @@ def evaluate(data_loader, model, device):
 
         # compute output
         with torch.cuda.amp.autocast():
-            output, _ = model(images)
+            output = model(images)
             loss = criterion(output, target)
 
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
@@ -156,7 +140,6 @@ def get_feature(data_loader, model, device, norm_flag=0):
 
     # switch to evaluation mode
     model.eval()
-    model.Fourier_eval()
 
     features = []
     targets = []

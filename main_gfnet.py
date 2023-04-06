@@ -17,10 +17,8 @@ from timm.utils import NativeScaler, get_state_dict, ModelEma
 from functools import partial
 import torch.nn as nn
 
-from datasets import build_dataset
 from engine import train_one_epoch, evaluate
 from losses import DistillationLoss
-from samplers import RASampler
 import utils
 from gfnet import GFNet, GFNetPyramid
 
@@ -42,84 +40,25 @@ def get_args_parser():
     parser.add_argument('--batch-size', default=64, type=int)
     parser.add_argument('--epochs', default=50, type=int)
 
-    parser.add_argument('--dataloader_DG_GFNet', default=0, type=int, help="0: DG; 1: GFNet")
-
-    parser.add_argument('--global_filter', default=1, type=int, help="whether use global_filter")
-
-    parser.add_argument('--fdrop_mode', default=0, type=int, help="1: before; 2: in; 3: after")
-    parser.add_argument('--fdrop_p', default=.1, type=float)
-    parser.add_argument('--fdrop_t_or_c', default=0, type=int)
-
-    parser.add_argument('--cdrop_mode', default=0, type=int)
-    parser.add_argument('--cdrop_p', default=.1, type=float)
-    parser.add_argument('--cdrop_layers', default=[1, 2, 3], nargs="+", type=int)
-
-    parser.add_argument('--perturb_prob', default=1.0,  type=float)
-    parser.add_argument('--beta_flag', default=1,  type=int)
+    parser.add_argument('--perturb_prob', default=0.5,  type=float)
     parser.add_argument('--mask_alpha', default=0.2,  type=float)
 
-    parser.add_argument('--patch_domain_mix', default=0,  type=int)
-    parser.add_argument('--patch_mix_alpha', default=0.2,  type=float)
-    parser.add_argument('--patch_embed_fix', default=0,  type=int)
-    parser.add_argument('--patch_domain_or_random', default=0,  type=int)
-    parser.add_argument('--patch_Fourier_mix', default=0,  type=int)
-    parser.add_argument('--patch_Fourier_radio', default=1.0,  type=float)
-    parser.add_argument('--patch_Fourier_alpha', default=1.0,  type=float)
-    parser.add_argument('--patch_Fourier_domainmix', default=1,  type=int)
-
-    parser.add_argument('--patch_layer', default=0,  type=int)
-    parser.add_argument('--patch_layer_random', default=0,  type=int)
-    parser.add_argument('--patch_layer_random_layers', default=3,  type=int, help="0-3")
-
-    parser.add_argument('--Fourier_flag', default=0,  type=int, help="1: Value mix; 2: Statistics mix")
-    parser.add_argument('--mask_radio', default=0.5,  type=float)
-    parser.add_argument('--Fourier_swap', default=0,  type=int)
-    parser.add_argument('--domain_mix', default=0,  type=int, help="whether to use domain mix")
-    parser.add_argument('--domain_sampler', default=0,  type=int, help="whether domain samplers")
-
-    parser.add_argument('--Fourier_high_enhance', default=0,  type=int, help="1: high pass enhance before learning; "
-                                                                             "2: high pass enhance after learning;")
-
-    parser.add_argument('--Fourier_drop_flag', default=0,  type=int, help="drop amplitude")
-    parser.add_argument('--Fourier_drop_apply_p', default=1.0,  type=float, help="prob of dropping")
-    parser.add_argument('--Fourier_drop_p', default=0.5,  type=float, help="prob of samples being selected")
-
-    parser.add_argument('--freq_analyse', default=0, type=int, help="whether do frequency analyse")
-
-    parser.add_argument('--statistics_mode', default=0,  type=int, help="0: mean and var mix; 1: histogram mix")
-
-    parser.add_argument('--noise_mode', default=0,  type=int, help="1: amplitude; 2: phase; 3:both")
-    parser.add_argument('--severity', default=0.2,  type=float, help="U(1-severity, 1+severity)")
-    parser.add_argument('--sig', default=0.3,  type=float, help="G(0, sig)")
-    parser.add_argument('--drop_whole', default=0,  type=int, help="use phase or amplitude only")
+    parser.add_argument('--noise_mode', default=1,  type=int, help="0: close; 1: add noise")
     parser.add_argument('--uncertainty_model', default=2,  type=int, help="1:batch+mean 2:batch+element")
     parser.add_argument('--uncertainty_factor', default=1.0,  type=float)
-    parser.add_argument('--uncertainty_sample', default=0,  type=int, help="1: mean and sigma same direction")
-    parser.add_argument('--noise_unif_oneside', default=0,  type=int, help="1: uniform 1-s~1; 0: 1-s~1+s")
-    parser.add_argument('--noise_type', default=0,  type=int, help="0: uniform; 1: gaussian")
+    parser.add_argument('--mask_radio', default=0.5,  type=float)
+    parser.add_argument('--low_or_high', default=0,  type=int, help="modify low freq or high freq")
     parser.add_argument('--gauss_or_uniform', default=0,  type=int, help="0: gaussian; 1: uniform; 2: random")
-
-    parser.add_argument('--noise_mix_flag', default=0,  type=int, help="whether to use noise and mix in a function")
     parser.add_argument('--noise_layers', default=[0, 1, 2, 3],  nargs="+", type=int, help="where to use augmentation.")
 
-    parser.add_argument('--low_or_high', default=0,  type=int, help="modify low freq or high freq")
-
-    parser.add_argument('--mix_test', default=0,  type=int, help="whether mix during test")
-    parser.add_argument('--mix_test_times', default=1,  type=int, help="whether mix during test")
-    parser.add_argument('--mix_test_mode', default=0,  type=int, help="0: best; 1: last")
     parser.add_argument('--set_training_mode', default=1,  type=int, help="0:eval 1:train")
+    parser.add_argument('--freq_analyse', default=0, type=int, help="whether do frequency analyse")
 
-    parser.add_argument('--R_Consistency', default=0,  type=int, help="R consistency")
+    parser.add_argument('--data_root', default='/data/DataSets/', type=str, help='dataset path')
+    parser.add_argument('--output_dir', default='/ALOFT_results/', help='path where to save, empty for no saving')
 
-    parser.add_argument('--MixStyle_flag', default=0,  type=int)
-    parser.add_argument('--MixStyle_mix', default=1,  type=int, help="0: random; 1: domain mix")
-    parser.add_argument('--MixStyle_layers', default=[0, 1, 2],  nargs="+", type=int)
-
-    parser.add_argument('--DSU_flag', default=0,  type=int)
-    parser.add_argument('--miu_mean_flag', default=1,  type=int)
-
-    parser.add_argument('--only_low_high_flag', default=0,  type=int)
-
+    # * Finetuning params
+    parser.add_argument('--finetune', default='/pretrained_model/', help='finetune from checkpoint')
 
     # Model parameters
     parser.add_argument('--arch', default='gfnet-h-ti', type=str,
@@ -223,36 +162,14 @@ def get_args_parser():
     parser.add_argument('--distillation-alpha', default=0.5, type=float, help="")
     parser.add_argument('--distillation-tau', default=1.0, type=float, help="")
 
-    # * Finetuning params
-    parser.add_argument('--finetune', default='/data/gjt/GFNet-master/pretrained_model/', help='finetune from checkpoint')
-
     parser.add_argument('--resume', default='', help='resume from checkpoint')
-    # parser.add_argument('--resume', default='/data/gjt/GFNet_results/PACS/adamw6.25e-05E50_dataDG_train_nogray/', help='resume from checkpoint')
     parser.add_argument('--eval', default=0, type=int, help='Perform evaluation only')
 
-
-    # Dataset parameters
-    # parser.add_argument('--data-path', default='/datasets01/imagenet_full_size/061417/', type=str,
-    #                     help='dataset path')
-    # parser.add_argument('--data-set', default='IMNET', choices=['CIFAR', 'IMNET', 'INAT', 'INAT19'],
-    #                     type=str, help='Image Net dataset path')
-    # parser.add_argument('--inat-category', default='name',
-    #                     choices=['kingdom', 'phylum', 'class', 'order', 'supercategory', 'family', 'genus', 'name'],
-    #                     type=str, help='semantic granularity')
-
-    parser.add_argument('--data_root', default='/data/DataSets/', type=str,
-                        help='dataset path')
     parser.add_argument('--data', default='PACS', choices=['CIFAR', 'IMNET', 'INAT', 'INAT19', 'PACS', 'OfficeHome', 'VLCS', 'digits_dg'],
                         type=str, help='Image Net dataset path')
     parser.add_argument('--inat-category', default='name',
                         choices=['kingdom', 'phylum', 'class', 'order', 'supercategory', 'family', 'genus', 'name'],
                         type=str, help='semantic granularity')
-
-
-    parser.add_argument('--output_dir', default='/data/gjt/GFNet_results/',
-                        help='path where to save, empty for no saving')
-    # parser.add_argument('--device', default='cuda',
-    #                     help='device to use for training / testing')
 
     parser.add_argument("--image_size", type=int, default=224, help="Image size")
     parser.add_argument("--min_scale", default=0.8, type=float, help="Minimum scale percent")
@@ -262,8 +179,6 @@ def get_args_parser():
     parser.add_argument("--jitter", default=0.4, type=float, help="Color jitter amount")
     parser.add_argument("--tile_random_grayscale", default=0.1, type=float,
                         help="Chance of randomly greyscaling a tile")
-
-
 
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
@@ -285,14 +200,12 @@ def get_args_parser():
     return parser
 
 
-
 domain_map = {
     'PACS': ['photo', 'art_painting', 'cartoon', 'sketch'],
     'PACS_random_split': ['photo', 'art_painting', 'cartoon', 'sketch'],
     'OfficeHome': ['Art', 'Clipart', 'Product', 'RealWorld'],
     'VLCS': ["CALTECH", "LABELME", "PASCAL", "SUN"],
     'digits_dg': ['mnist', 'mnist_m', 'svhn', 'syn'],
-    'miniDomainNet': ['clipart', 'painting', 'real', 'sketch'],
 }
 classes_map = {
     'PACS': 7,
@@ -300,7 +213,6 @@ classes_map = {
     'OfficeHome': 65,
     'VLCS': 5,
     'digits_dg': 32,
-    'miniDomainNet': 126,
 }
 val_size_map = {
     'PACS': 0.1,
@@ -308,8 +220,9 @@ val_size_map = {
     'OfficeHome': 0.1,
     'VLCS': 0.3,
     'digits_dg': 0.2,
-    'miniDomainNet': 3,
 }
+
+
 def get_domain(name):
     if name not in domain_map:
         raise ValueError('Name of dataset unknown %s' %name)
@@ -340,57 +253,13 @@ def main(args):
     seed = args.seed + utils.get_rank()
     torch.manual_seed(seed)
     np.random.seed(seed)
-    # random.seed(seed)
 
     cudnn.benchmark = True
 
     args.nb_classes = args.n_classes
-    # dataset_train, args.nb_classes = build_dataset(is_train=True, args=args)
-    # dataset_val, _ = build_dataset(is_train=False, args=args)
 
     data_loader_train, data_loader_val = data_helper.get_train_dataloader(args, patches=False)
     data_loader_test = data_helper.get_val_dataloader(args, patches=False)
-    # print(len(dataset_train.dataset), len(dataset_val.dataset), len(dataset_test.dataset))
-
-    # if False:  # args.distributed:
-    #     num_tasks = utils.get_world_size()
-    #     global_rank = utils.get_rank()
-    #     if args.repeated_aug:
-    #         sampler_train = RASampler(
-    #             dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
-    #         )
-    #     else:
-    #         sampler_train = torch.utils.data.DistributedSampler(
-    #             dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
-    #         )
-    #     if args.dist_eval:
-    #         if len(dataset_val) % num_tasks != 0:
-    #             print('Warning: Enabling distributed evaluation with an eval dataset not divisible by process number. '
-    #                   'This will slightly alter validation results as extra duplicate entries are added to achieve '
-    #                   'equal num of samples per-process.')
-    #         sampler_val = torch.utils.data.DistributedSampler(
-    #             dataset_val, num_replicas=num_tasks, rank=global_rank, shuffle=False)
-    #     else:
-    #         sampler_val = torch.utils.data.SequentialSampler(dataset_val)
-    # else:
-    #     sampler_train = torch.utils.data.RandomSampler(dataset_train)
-    #     sampler_val = torch.utils.data.SequentialSampler(dataset_val)
-
-    # data_loader_train = torch.utils.data.DataLoader(
-    #     dataset_train, sampler=sampler_train,
-    #     batch_size=args.batch_size,
-    #     num_workers=args.num_workers,
-    #     pin_memory=args.pin_mem,
-    #     drop_last=True,
-    # )
-    #
-    # data_loader_val = torch.utils.data.DataLoader(
-    #     dataset_val, sampler=sampler_val,
-    #     batch_size=int(1.5 * args.batch_size),
-    #     num_workers=args.num_workers,
-    #     pin_memory=args.pin_mem,
-    #     drop_last=False
-    # )
 
     mixup_fn = None
     mixup_active = args.mixup > 0 or args.cutmix > 0. or args.cutmix_minmax is not None
@@ -405,31 +274,7 @@ def main(args):
 
     print(f"Creating model: {args.arch}")
 
-    if args.arch == 'gfnet-xs':
-        model = GFNet(
-            img_size=args.input_size, 
-            patch_size=16, embed_dim=384, depth=12, mlp_ratio=4,
-            norm_layer=partial(nn.LayerNorm, eps=1e-6)
-        )
-    elif args.arch == 'gfnet-ti':
-        model = GFNet(
-            img_size=args.input_size, 
-            patch_size=16, embed_dim=256, depth=12, mlp_ratio=4,
-            norm_layer=partial(nn.LayerNorm, eps=1e-6)
-        )
-    elif args.arch == 'gfnet-s':
-        model = GFNet(
-            img_size=args.input_size, 
-            patch_size=16, embed_dim=384, depth=19, mlp_ratio=4, drop_path_rate=0.15,
-            norm_layer=partial(nn.LayerNorm, eps=1e-6)
-        )
-    elif args.arch == 'gfnet-b':
-        model = GFNet(
-            img_size=args.input_size, 
-            patch_size=16, embed_dim=512, depth=19, mlp_ratio=4, drop_path_rate=0.25,
-            norm_layer=partial(nn.LayerNorm, eps=1e-6)
-        )
-    elif args.arch == 'gfnet-h-ti':
+    if args.arch == 'gfnet-h-ti':
         model = GFNetPyramid(
             img_size=args.input_size, 
             patch_size=4,
@@ -437,26 +282,11 @@ def main(args):
             embed_dim=[64, 128, 256, 512], depth=[3, 3, 10, 3],
             mlp_ratio=[4, 4, 4, 4],
             norm_layer=partial(nn.LayerNorm, eps=1e-6), drop_path_rate=0.1,
-            fdrop_mode=args.fdrop_mode, fdrop_p=args.fdrop_p, fdrop_t_or_c=args.fdrop_t_or_c,
-            cdrop_mode=args.cdrop_mode, cdrop_p=args.cdrop_p, cdrop_layers=args.cdrop_layers,
-            Fourier_flag=args.Fourier_flag, Fourier_swap=args.Fourier_swap, mask_radio=args.mask_radio,
+            mask_radio=args.mask_radio,
             mask_alpha=args.mask_alpha,
-            noise_mode=args.noise_mode, severity=args.severity, sig=args.sig, domain_mix=args.domain_mix,
-            mix_test=args.mix_test, drop_whole=args.drop_whole, global_filter=args.global_filter,
+            noise_mode=args.noise_mode,
             low_or_high=args.low_or_high, uncertainty_model=args.uncertainty_model, perturb_prob=args.perturb_prob,
-            beta_flag=args.beta_flag, statistics_mode=args.statistics_mode,
-            patch_domain_mix=args.patch_domain_mix, patch_mix_alpha=args.patch_mix_alpha,
-            patch_embed_fix=args.patch_embed_fix, patch_domain_or_random=args.patch_domain_or_random,
-            patch_Fourier_mix=args.patch_Fourier_mix, patch_Fourier_radio=args.patch_Fourier_radio,
-            patch_Fourier_alpha=args.patch_Fourier_alpha, patch_Fourier_domainmix=args.patch_Fourier_domainmix,
-            Fourier_high_enhance=args.Fourier_high_enhance, Fourier_drop_flag=args.Fourier_drop_flag,
-            Fourier_drop_apply_p=args.Fourier_drop_apply_p, Fourier_drop_p=args.Fourier_drop_p,
-            noise_mix_flag=args.noise_mix_flag, noise_unif_oneside=args.noise_unif_oneside,
-            noise_type=args.noise_type, noise_layers=args.noise_layers, gauss_or_uniform=args.gauss_or_uniform,
-            MixStyle_flag=args.MixStyle_flag, MixStyle_mix=args.MixStyle_mix, MixStyle_layers=args.MixStyle_layers,
-            DSU_flag=args.DSU_flag,
-            miu_mean_flag=args.miu_mean_flag,
-            only_low_high_flag=args.only_low_high_flag
+            noise_layers=args.noise_layers, gauss_or_uniform=args.gauss_or_uniform,
         )
     elif args.arch == 'gfnet-h-s':
         model = GFNetPyramid(
@@ -467,34 +297,11 @@ def main(args):
             mlp_ratio=[4, 4, 4, 4],
             norm_layer=partial(nn.LayerNorm, eps=1e-6), drop_path_rate=0.2,
             init_values=1e-5,
-            fdrop_mode=args.fdrop_mode, fdrop_p=args.fdrop_p, fdrop_t_or_c=args.fdrop_t_or_c,
-            cdrop_mode=args.cdrop_mode, cdrop_p=args.cdrop_p, cdrop_layers=args.cdrop_layers,
-            Fourier_flag=args.Fourier_flag, Fourier_swap=args.Fourier_swap, mask_radio=args.mask_radio,
+            mask_radio=args.mask_radio,
             mask_alpha=args.mask_alpha,
-            noise_mode=args.noise_mode, severity=args.severity, sig=args.sig, domain_mix=args.domain_mix,
-            mix_test=args.mix_test, drop_whole=args.drop_whole, global_filter=args.global_filter,
+            noise_mode=args.noise_mode,
             low_or_high=args.low_or_high, uncertainty_model=args.uncertainty_model, perturb_prob=args.perturb_prob,
-            beta_flag=args.beta_flag, statistics_mode=args.statistics_mode,
-            patch_domain_mix=args.patch_domain_mix, patch_mix_alpha=args.patch_mix_alpha,
-            patch_embed_fix=args.patch_embed_fix, patch_domain_or_random=args.patch_domain_or_random,
-            patch_Fourier_mix=args.patch_Fourier_mix, patch_Fourier_radio=args.patch_Fourier_radio,
-            patch_Fourier_alpha=args.patch_Fourier_alpha, patch_Fourier_domainmix=args.patch_Fourier_domainmix,
-            Fourier_high_enhance=args.Fourier_high_enhance, Fourier_drop_flag=args.Fourier_drop_flag,
-            Fourier_drop_apply_p=args.Fourier_drop_apply_p, Fourier_drop_p=args.Fourier_drop_p,
-            noise_mix_flag=args.noise_mix_flag, noise_unif_oneside=args.noise_unif_oneside,
-            noise_type=args.noise_type, noise_layers=args.noise_layers, gauss_or_uniform=args.gauss_or_uniform,
-
-            MixStyle_flag=args.MixStyle_flag, MixStyle_mix=args.MixStyle_mix, MixStyle_layers=args.MixStyle_layers,
-            DSU_flag=args.DSU_flag,
-            miu_mean_flag=args.miu_mean_flag,
-            only_low_high_flag=args.only_low_high_flag
-        )
-    elif args.arch == 'gfnet-h-b':
-        model = GFNetPyramid(
-            img_size=args.input_size, 
-            patch_size=4, embed_dim=[96, 192, 384, 768], depth=[3, 3, 27, 3],
-            mlp_ratio=[4, 4, 4, 4],
-            norm_layer=partial(nn.LayerNorm, eps=1e-6), drop_path_rate=0.4, init_values=1e-6
+            noise_layers=args.noise_layers, gauss_or_uniform=args.gauss_or_uniform,
         )
     else:
         raise NotImplementedError
@@ -573,7 +380,6 @@ def main(args):
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('number of params:', n_parameters)
 
-
     if args.opt == "adamw":
         linear_scaled_lr = args.lr * args.batch_size * utils.get_world_size() / 512.0
         args.lr = linear_scaled_lr
@@ -620,134 +426,18 @@ def main(args):
         criterion, teacher_model, args.distillation_type, args.distillation_alpha, args.distillation_tau
     )
 
-    # output_dir = Path(args.output_dir)
-
     dir_name = args.opt + str(args.lr) + "E" + str(args.epochs)
 
     if args.arch == "gfnet-h-s":
         dir_name += "_gfnet-h-s"
 
-    if args.data == "digits_dg" and args.image_size == 32:
-        dir_name += "_i32"
-
-    if args.global_filter == 0:
-        dir_name += "_noGF"
-
-    if args.dataloader_DG_GFNet == 1:
-        dir_name += "_dataGF"
-        if args.aa == None:
-            dir_name += "_noaa"
-    else:
-        dir_name += "_dataDG"
-
-    if args.mixup > 0:
-        dir_name += "_mix"
-    if args.cutmix > 0:
-        dir_name += "_cutmix"
-    if args.fdrop_mode != 0:
-        if args.fdrop_mode == 1:
-            dir_name += "_before"
-        elif args.fdrop_mode == 2:
-            dir_name += "_in"
-        else:
-            dir_name += "_after"
-        if args.fdrop_t_or_c == 0:
-            dir_name += "_token"
-        else:
-            dir_name += "_channel"
-        dir_name += str(args.fdrop_p)
-
-    if args.cdrop_mode > 0:
-        dir_name += "_cdrop_" + str(args.cdrop_p) + "_"
-        for l in args.cdrop_layers:
-            dir_name += str(l)
-
-    if args.patch_domain_mix == 1:
-        dir_name += "_PatchCutMix" + str(args.patch_mix_alpha)
-        if args.patch_domain_or_random == 1:
-            dir_name += "_random"
-        else:
-            dir_name += "_domain"
-        if args.patch_layer_random == 1:
-            dir_name += "_L_r"
-            if args.patch_layer_random_layers != 3:
-                dir_name += str(args.patch_layer_random_layers)
-        else:
-            dir_name += "_L" + str(args.patch_layer)
-    elif args.patch_domain_mix == 2:
-        dir_name += "_PatchMix" + str(args.patch_mix_alpha)
-        if args.patch_domain_or_random == 1:
-            dir_name += "_random"
-        else:
-            dir_name += "_domain"
-        if args.patch_layer_random == 1:
-            dir_name += "_L_r"
-            if args.patch_layer_random_layers != 3:
-                dir_name += str(args.patch_layer_random_layers)
-        else:
-            dir_name += "_L" + str(args.patch_layer)
-    if args.patch_embed_fix == 1:
-        dir_name += "_fixed"
-
-    if args.patch_Fourier_mix == 1:
-        dir_name += "_PatchFourierMix_r" + str(args.patch_Fourier_radio) + "_a" + str(args.patch_Fourier_alpha)
-        if args.patch_Fourier_domainmix == 1:
-            dir_name += "_domain"
-
-    if args.domain_sampler == 1:
-        dir_name += "_domainsampler"
-
-
-    if args.Fourier_flag != 0:
-        dir_name += "_Fourier" + "_M" + str(args.mask_radio) + "_A" + str(args.mask_alpha) + "_p" + str(args.perturb_prob)
-        # dir_name += "_new"
-
-        if args.low_or_high == 0 and args.only_low_high_flag == 1:
-            dir_name += "_only_high_pass"
-        if args.low_or_high == 1 and args.only_low_high_flag == 1:
-            dir_name += "_only_low_pass"
-
-        if args.beta_flag == 1:
-            dir_name += "_beta"
-        if args.Fourier_swap == 1:
-            dir_name += "_Swap"
-        if args.domain_mix == 1:
-            dir_name += "_domainmix"
-        elif args.domain_mix == 2:
-            dir_name += "_intra_domainmix"
-
-        if args.Fourier_flag == 2:
-            if args.statistics_mode == 0:
-                dir_name += "_meanvar"
-            else:
-                dir_name += "_histogram"
-
-        if args.mix_test == 1:
-            dir_name += "_mixtest"
-
-        if args.Fourier_drop_flag == 1:
-            dir_name += "_drop_amp_" + str(args.Fourier_drop_apply_p) + "_p" + str(args.Fourier_drop_p)
-
-        if args.Fourier_high_enhance == 1:
-            dir_name += "_high_enhance_before"
-        elif args.Fourier_high_enhance == 2:
-            dir_name += "_high_enhance_after"
-
     if args.noise_mode != 0:
         dir_name += "_noise" + "_M" + str(args.mask_radio) + "_p" + str(args.perturb_prob)
-        if args.beta_flag == 1:
-            dir_name += "_beta"
         if args.noise_mode == 1:
             dir_name += "_amp"
-            # if args.mask_alpha == 0:
-            #     dir_name += "_swap"
-            # else:
-            #     dir_name += "_alpha" + str(args.mask_alpha)
             if args.uncertainty_model != 0:
                 if args.uncertainty_model == 1:
                     dir_name += "_batch_mean"
-                    if args.noise_mix_flag == 1:
-                        dir_name += "_wFourierMix"
                 else:
                     dir_name += "_batch_elem"
                 if args.gauss_or_uniform == 1:
@@ -755,54 +445,9 @@ def main(args):
                 elif args.gauss_or_uniform == 2:
                     dir_name += "_randGauss"
                 dir_name += "_f" + str(args.uncertainty_factor)
-                if args.uncertainty_sample == 1:
-                    dir_name += "_sampleSame"
-            else:
-                if args.noise_type == 0:
-                    dir_name += "_unif" + str(args.severity)
-                    if args.noise_unif_oneside == 1:
-                        dir_name += "_oneside"
-                else:
-                    dir_name += "_gauss" + str(args.sig)
-            if args.miu_mean_flag == 1:
-                dir_name += "_mean_value"
-        elif args.noise_mode == 2:
-            dir_name += "_pha"
-            if args.noise_type == 0:
-                dir_name += "_unif" + str(args.severity)
-                if args.noise_unif_oneside == 1:
-                    dir_name += "_oneside"
-            else:
-                dir_name += "_gauss" + str(args.sig)
-        else:
-            dir_name += "_amp" + str(args.severity) + "_pha" + str(args.sig)
-
-        dir_name += "_L"
-        for l in args.noise_layers:
-            dir_name += str(l)
-
-    if args.set_training_mode:
-        dir_name += "_train"
-    else:
-        dir_name += "_finetune"
 
     if args.gray_flag == 0:
         dir_name += "_nogray"
-
-    if args.R_Consistency == 1:
-        dir_name += "_RConsist"
-
-    if args.MixStyle_flag == 1:
-        dir_name += "_MixStyle"
-        if args.MixStyle_mix == 0:
-            dir_name += "_rand_"
-        else:
-            dir_name += "_cross_"
-        for l in args.MixStyle_layers:
-            dir_name += str(l)
-    if args.DSU_flag == 1:
-        dir_name += "_DSU"
-
 
     output_dir = os.path.join(args.output_dir, args.data, dir_name, args.target + str(args.seed))
     if not os.path.exists(output_dir):
@@ -814,10 +459,7 @@ def main(args):
             checkpoint = torch.hub.load_state_dict_from_url(
                 args.resume, map_location='cpu', check_hash=True)
         else:
-            if args.mix_test == 1 and args.mix_test_mode == 1:
-                model_path = args.resume + "/" + args.target + str(args.seed) + "/checkpoint_last.pth"
-            else:
-                model_path = args.resume + "/" + args.target + str(args.seed) + "/checkpoint_best.pth"
+            model_path = args.resume + "/" + args.target + str(args.seed) + "/checkpoint_last.pth"
             checkpoint = torch.load(model_path, map_location='cpu')
         model_without_ddp.load_state_dict(checkpoint['model'], strict=False)
         if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
@@ -831,48 +473,8 @@ def main(args):
                 loss_scaler.load_state_dict(checkpoint['scaler'])
 
     if args.eval:
-        if args.mix_test == 1:
-            val_stats = []
-            test_stats = []
-            for t in range(args.mix_test_times):
-                val_stats.append(evaluate(data_loader_val, model, device)['acc1'])
-                test_stats.append(evaluate(data_loader_test, model, device)['acc1'])
-            val_stats = np.mean(val_stats)
-            test_stats = np.mean(test_stats)
-
-            log_filename = "/log_mixtest"
-            if args.mix_test_mode == 0:
-                log_filename += "_best"
-            else:
-                log_filename += "_last"
-
-            log_filename += "_" + str(args.batch_size)
-            if args.low_or_high == 1:
-                log_filename += "_hFreq"
-
-            if args.noise_mode != 0:
-                log_filename += "_noise"
-                if args.noise_mode == 1:
-                    log_filename += "_amp"
-                    if args.uncertainty_model != 0:
-                        if args.uncertainty_model == 1:
-                            log_filename += "_batch_mean"
-                        else:
-                            log_filename += "_batch_elem"
-                    else:
-                        log_filename += str(args.severity)
-                elif args.noise_mode == 2:
-                    log_filename += "_pha" + str(args.sig)
-                else:
-                    log_filename += "_amp" + str(args.severity) + "_pha" + str(args.sig)
-
-            log_filename += ".txt"
-            with open(args.resume + "/" + args.target + str(args.seed) + log_filename, "w") as f:
-                line = "Val: " + f"{val_stats:.2f}" + ", Test: " + f"{test_stats:.2f}"
-                f.write(line + "\n")
-        else:
-            val_stats = evaluate(data_loader_val, model, device)['acc1']
-            test_stats = evaluate(data_loader_test, model, device)['acc1']
+        val_stats = evaluate(data_loader_val, model, device)['acc1']
+        test_stats = evaluate(data_loader_test, model, device)['acc1']
         print(f"Accuracy of the network on the {len(data_loader_val.dataset)} val images: {val_stats:.2f}%")
         print(f"Accuracy of the network on the {len(data_loader_test.dataset)} test images: {test_stats:.2f}%")
         return
@@ -898,13 +500,7 @@ def main(args):
             model, criterion, data_loader_train,
             optimizer, device, epoch, loss_scaler,
             args.clip_grad, model_ema, mixup_fn,
-            # set_training_mode=args.finetune == ''  # keep in eval mode during finetuning
             set_training_mode=args.set_training_mode,  # keep in eval mode during finetuning
-            patch_domain_mix=args.patch_domain_mix,
-            patch_layer=args.patch_layer,
-            patch_layer_random=args.patch_layer_random,
-            R_Consistency=args.R_Consistency,
-            patch_layer_random_layers=args.patch_layer_random_layers
         )
 
         lr_scheduler.step(epoch)
