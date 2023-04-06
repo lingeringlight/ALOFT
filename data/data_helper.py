@@ -1,21 +1,10 @@
 from os.path import join
 
-import torch
 from torch.utils.data import DataLoader
-from torchvision import transforms
 
 from data.JigsawLoader import *
 from data.concat_dataset import ConcatDataset
 from data.JigsawLoader import JigsawNewDataset, JigsawTestNewDataset
-
-from .samplers import BatchSchedulerSampler
-from datasets import build_transform
-
-
-vlcs_datasets = ["CALTECH", "LABELME", "PASCAL", "SUN"]
-pacs_datasets = ["art_painting", "cartoon", "photo", "sketch"]
-officehome_datasets = ['Art', 'Clipart', 'Product', 'RealWorld']
-available_datasets = officehome_datasets + pacs_datasets + vlcs_datasets
 
 
 class Subset(torch.utils.data.Dataset):
@@ -37,13 +26,8 @@ def get_train_dataloader(args, patches):
     datasets = []
     val_datasets = []
 
-    if args.dataloader_DG_GFNet == 0:
-        img_transformer, tile_transformer = get_train_transformers(args)
-        img_transformer_val = get_val_transformer(args)
-    else:
-        tile_transformer = None
-        img_transformer = build_transform(is_train=True, args=args, infer_no_resize=False)
-        img_transformer_val = build_transform(is_train=False, args=args, infer_no_resize=False)
+    img_transformer, tile_transformer = get_train_transformers(args)
+    img_transformer_val = get_val_transformer(args)
 
     limit = None
 
@@ -102,12 +86,7 @@ def get_train_dataloader(args, patches):
     dataset = ConcatDataset(datasets)
     val_dataset = ConcatDataset(val_datasets)
 
-    if args.domain_sampler == 1:
-        sampler = BatchSchedulerSampler(dataset, args.batch_size)
-        loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=4,
-                                             pin_memory=True, drop_last=True, sampler=sampler)
-    else:
-        loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=4,
+    loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=4,
                                          pin_memory=True, drop_last=True)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4,
                                              pin_memory=True, drop_last=False)
