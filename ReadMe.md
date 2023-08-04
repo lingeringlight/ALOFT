@@ -38,7 +38,7 @@ python main_gfnet.py --target $domain --data 'PACS' --device $device --eval 1 --
 
 ### Training
 
-Firstly download the GFNet-H-Ti model pretrained on ImageNet from [here](https://drive.google.com/file/d/1_xrfC7c_ccZnVicYDnrViOA_T1N-xoHI/view?usp=sharing) and save it to `/pretrained_model`. To run ALOFT-E, you could run the following code. Please set the `--data_root` argument needs to be changed according to your folder. 
+Firstly download the GFNet-H-Ti model pretrained on ImageNet from [here](https://drive.google.com/file/d/1Nrq5sfHD9RklCMl6WkcVrAWI5vSVzwSm/view) and save it to `/pretrained_model`. To run ALOFT-E, you could run the following code. Please set the `--data_root` argument needs to be changed according to your folder. 
 
 ```
 bash ALOFT-E.sh
