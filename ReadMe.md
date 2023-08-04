@@ -8,6 +8,18 @@
 * Torchvision == 0.4.2
 * timm == 0.4.12
 
+### DataSets
+Please download PACS dataset from [here](https://drive.google.com/drive/folders/0B6x7gtvErXgfUU1WcGY5SzdwZVk?resourcekey=0-2fvpQY_QSyJf2uIECzqPuQ).
+Make sure you use the official train/val/test split in [PACS paper](https://openaccess.thecvf.com/content_iccv_2017/html/Li_Deeper_Broader_and_ICCV_2017_paper.html).
+Take `/data/DataSets/` as the saved directory for example:
+```
+images -> /data/DataSets/PACS/kfold/art_painting/dog/pic_001.jpg, ...
+splits -> /data/DataSets/PACS/pacs_label/art_painting_crossval_kfold.txt, ...
+```
+Then set the `"data_root"` as `"/data/DataSets/"` and `"data"` as `"PACS"` in  `"main_gfnet.py"`. 
+
+You can directly set the `"data_root"` and `"data"` in `"ALOFT-S.sh"`/`"ALOFT-S.sh"` for training the model.
+
 ### Evaluation
 
 To evaluate the performance of the models, you can download the models trained  on PACS as below:
