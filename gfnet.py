@@ -32,6 +32,7 @@ def _cfg(url='', **kwargs):
         **kwargs
     }
 
+
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
         super().__init__()
@@ -57,7 +58,7 @@ class GlobalFilter(nn.Module):
                  noise_mode=1,
                  uncertainty_model=0, perturb_prob=0.5,
                  uncertainty_factor=1.0,
-                 noise_layer_flag=0, gauss_or_uniform=0,):
+                 noise_layer_flag=0, gauss_or_uniform=0, ):
         super().__init__()
         self.complex_weight = nn.Parameter(torch.randn(h, w, dim, 2, dtype=torch.float32) * 0.02)
         self.w = w
@@ -69,7 +70,6 @@ class GlobalFilter(nn.Module):
         self.noise_layer_flag = noise_layer_flag
 
         self.alpha = mask_alpha
-
 
         self.eps = 1e-6
         self.factor = uncertainty_factor
@@ -106,8 +106,10 @@ class GlobalFilter(nn.Module):
             if uncertainty_model != 0:
                 if uncertainty_model == 1:
                     # batch level modeling
-                    miu = torch.mean(img_abs_[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :], dim=(1, 2), keepdim=True)
-                    var = torch.var(img_abs_[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :], dim=(1, 2), keepdim=True)
+                    miu = torch.mean(img_abs_[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :], dim=(1, 2),
+                                     keepdim=True)
+                    var = torch.var(img_abs_[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :], dim=(1, 2),
+                                    keepdim=True)
                     sig = (var + self.eps).sqrt()  # Bx1x1xC
 
                     var_of_miu = torch.var(miu, dim=0, keepdim=True)
@@ -136,20 +138,24 @@ class GlobalFilter(nn.Module):
                         gamma = self._reparameterize(mu=sig, std=1., epsilon_norm=epsilon_norm_sig)
 
                     # adjust statistics for each sample
-                    img_abs[:, h_start:h_start + h_crop, w_start:w_start+w_crop, :] = gamma * (
-                            img_abs[:, h_start:h_start + h_crop, w_start:w_start+w_crop, :] - miu) / sig + beta
+                    img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :] = gamma * (
+                            img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :] - miu) / sig + beta
 
                 elif uncertainty_model == 2:
                     # element level modeling
-                    miu_of_elem = torch.mean(img_abs_[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :], dim=0, keepdim=True)
-                    var_of_elem = torch.var(img_abs_[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :], dim=0, keepdim=True)
+                    miu_of_elem = torch.mean(img_abs_[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :], dim=0,
+                                             keepdim=True)
+                    var_of_elem = torch.var(img_abs_[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :], dim=0,
+                                            keepdim=True)
                     sig_of_elem = (var_of_elem + self.eps).sqrt()  # 1xHxWxC
 
                     if gauss_or_uniform == 0:
-                        epsilon_sig = torch.randn_like(img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :])  # BxHxWxC N(0,1)
+                        epsilon_sig = torch.randn_like(
+                            img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :])  # BxHxWxC N(0,1)
                         gamma = epsilon_sig * sig_of_elem * self.factor
                     elif gauss_or_uniform == 1:
-                        epsilon_sig = torch.rand_like(img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :]) * 2 - 1.  # U(-1,1)
+                        epsilon_sig = torch.rand_like(
+                            img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :]) * 2 - 1.  # U(-1,1)
                         gamma = epsilon_sig * sig_of_elem * self.factor
                     else:
                         epsilon_sig = torch.randn_like(
@@ -191,7 +197,7 @@ class Block(nn.Module):
                  noise_mode=1,
                  uncertainty_model=0, perturb_prob=0.5,
                  uncertainty_factor=1.0,
-                 gauss_or_uniform=0,):
+                 gauss_or_uniform=0, ):
         super().__init__()
         self.norm1 = norm_layer(dim)
         self.filter = GlobalFilter(dim, h=h, w=w,
@@ -200,7 +206,7 @@ class Block(nn.Module):
                                    noise_mode=noise_mode,
                                    uncertainty_model=uncertainty_model, perturb_prob=perturb_prob,
                                    uncertainty_factor=uncertainty_factor, noise_layer_flag=1,
-                                   gauss_or_uniform=gauss_or_uniform,)
+                                   gauss_or_uniform=gauss_or_uniform, )
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
@@ -218,7 +224,7 @@ class BlockLayerScale(nn.Module):
                  norm_layer=nn.LayerNorm, h=14, w=8, init_values=1e-5,
                  mask_radio=0.1, mask_alpha=0.5, noise_mode=1,
                  uncertainty_model=0, perturb_prob=0.5, uncertainty_factor=1.0,
-                 layer_index=0, noise_layers=[0, 1, 2, 3], gauss_or_uniform=0,):
+                 layer_index=0, noise_layers=[0, 1, 2, 3], gauss_or_uniform=0, ):
         super().__init__()
         self.norm1 = norm_layer(dim)
 
@@ -232,7 +238,7 @@ class BlockLayerScale(nn.Module):
                                    noise_mode=noise_mode,
                                    uncertainty_model=uncertainty_model, perturb_prob=perturb_prob,
                                    uncertainty_factor=uncertainty_factor,
-                                   noise_layer_flag=noise_layer_flag, gauss_or_uniform=gauss_or_uniform,)
+                                   noise_layer_flag=noise_layer_flag, gauss_or_uniform=gauss_or_uniform, )
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
@@ -250,6 +256,7 @@ class BlockLayerScale(nn.Module):
 class PatchEmbed(nn.Module):
     """ Image to Patch Embedding
     """
+
     def __init__(self, img_size=224, patch_size=16, in_chans=3, embed_dim=768):
         super().__init__()
         img_size = to_2tuple(img_size)
@@ -275,7 +282,7 @@ class PatchEmbed(nn.Module):
         # FIXME look at relaxing size constraints
         assert H == self.img_size[0] and W == self.img_size[1], \
             f"Input image size ({H}*{W}) doesn't match model ({self.img_size[0]}*{self.img_size[1]})."
-        x = self.proj(x).flatten(2).transpose(1, 2)     # BxCxHxW -> BxNxC , N=(224/4)^2=3136, C=64
+        x = self.proj(x).flatten(2).transpose(1, 2)  # BxCxHxW -> BxNxC , N=(224/4)^2=3136, C=64
 
         return x
 
@@ -283,6 +290,7 @@ class PatchEmbed(nn.Module):
 class DownLayer(nn.Module):
     """ Image to Patch Embedding
     """
+
     def __init__(self, img_size=56, dim_in=64, dim_out=128):
         super().__init__()
         self.img_size = img_size
@@ -304,7 +312,7 @@ class GFNet(nn.Module):
 
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dim=768, depth=12,
                  mlp_ratio=4., representation_size=None, uniform_drop=False,
-                 drop_rate=0., drop_path_rate=0., norm_layer=None, 
+                 drop_rate=0., drop_path_rate=0., norm_layer=None,
                  dropcls=0, ):
         """
         Args:
@@ -331,7 +339,7 @@ class GFNet(nn.Module):
         norm_layer = norm_layer or partial(nn.LayerNorm, eps=1e-6)
 
         self.patch_embed = PatchEmbed(
-                img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim)
+            img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim)
         num_patches = self.patch_embed.num_patches
 
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, embed_dim))
@@ -352,7 +360,7 @@ class GFNet(nn.Module):
                 dim=embed_dim, mlp_ratio=mlp_ratio,
                 drop=drop_rate, drop_path=dpr[i], norm_layer=norm_layer, h=h, w=w)
             for i in range(depth)])
-        
+
         self.norm = norm_layer(embed_dim)
 
         # Representation layer
@@ -418,14 +426,14 @@ class GFNet(nn.Module):
 
 class GFNetPyramid(nn.Module):
 
-    def __init__(self, img_size=224, patch_size=4, num_classes=1000, embed_dim=[64, 128, 256, 512], depth=[2,2,10,4],
+    def __init__(self, img_size=224, patch_size=4, num_classes=1000, embed_dim=[64, 128, 256, 512], depth=[2, 2, 10, 4],
                  mlp_ratio=[4, 4, 4, 4],
                  drop_rate=0., drop_path_rate=0., norm_layer=None, init_values=0.001, no_layerscale=False, dropcls=0,
                  mask_radio=0.1, mask_alpha=0.5, noise_mode=1,
                  uncertainty_model=0,
                  perturb_prob=0.5,
                  uncertainty_factor=1.0,
-                 noise_layers=[0, 1, 2, 3], gauss_or_uniform=0,):
+                 noise_layers=[0, 1, 2, 3], gauss_or_uniform=0, ):
         """
         Args:
             img_size (int, tuple): input image size
@@ -451,9 +459,9 @@ class GFNetPyramid(nn.Module):
         norm_layer = norm_layer or partial(nn.LayerNorm, eps=1e-6)
 
         self.patch_embed = nn.ModuleList()
-        
+
         patch_embed = PatchEmbed(
-                img_size=img_size, patch_size=patch_size, in_chans=3, embed_dim=embed_dim[0])
+            img_size=img_size, patch_size=patch_size, in_chans=3, embed_dim=embed_dim[0])
         num_patches = patch_embed.num_patches
 
         # patch_embed.init_weights(stop_grad_conv1=False)
@@ -466,7 +474,7 @@ class GFNetPyramid(nn.Module):
             sizes[i] = sizes[i] * img_size // 224
 
         for i in range(3):
-            patch_embed = DownLayer(sizes[i], embed_dim[i], embed_dim[i+1])
+            patch_embed = DownLayer(sizes[i], embed_dim[i], embed_dim[i + 1])
             num_patches = patch_embed.num_patches
             self.patch_embed.append(patch_embed)
 
@@ -483,8 +491,8 @@ class GFNetPyramid(nn.Module):
                 print('using standard block')
                 blk = nn.Sequential(*[
                     Block(
-                    dim=embed_dim[i], mlp_ratio=mlp_ratio[i],
-                    drop=drop_rate, drop_path=dpr[cur + j], norm_layer=norm_layer, h=h, w=w,
+                        dim=embed_dim[i], mlp_ratio=mlp_ratio[i],
+                        drop=drop_rate, drop_path=dpr[cur + j], norm_layer=norm_layer, h=h, w=w,
                         mask_radio=mask_radio,
                         mask_alpha=mask_alpha,
                         noise_mode=noise_mode,
@@ -492,21 +500,22 @@ class GFNetPyramid(nn.Module):
                         uncertainty_factor=uncertainty_factor,
                         gauss_or_uniform=gauss_or_uniform,
                     )
-                for j in range(depth[i])
+                    for j in range(depth[i])
                 ])
             else:
                 print('using layerscale block')
                 blk = nn.Sequential(*[
                     BlockLayerScale(
                         dim=embed_dim[i], mlp_ratio=mlp_ratio[i],
-                        drop=drop_rate, drop_path=dpr[cur + j], norm_layer=norm_layer, h=h, w=w, init_values=init_values,
+                        drop=drop_rate, drop_path=dpr[cur + j], norm_layer=norm_layer, h=h, w=w,
+                        init_values=init_values,
                         mask_radio=mask_radio, mask_alpha=mask_alpha, noise_mode=noise_mode,
                         uncertainty_model=uncertainty_model, perturb_prob=perturb_prob,
                         uncertainty_factor=uncertainty_factor,
                         layer_index=i,
                         noise_layers=noise_layers, gauss_or_uniform=gauss_or_uniform,
                     )
-                for j in range(depth[i])
+                    for j in range(depth[i])
                 ])
             self.blocks.append(blk)
             cur += depth[i]
@@ -561,6 +570,7 @@ class GFNetPyramid(nn.Module):
         x = self.head(x)
         return x
 
+
 def resize_pos_embed(posemb, posemb_new):
     # Rescale the grid of position embeddings when loading from state_dict. Adapted from
     # https://github.com/google-research/vision_transformer/blob/00883dd691c63a6830751563748663526e811cee/vit_jax/checkpoint.py#L224
@@ -579,6 +589,7 @@ def resize_pos_embed(posemb, posemb_new):
     posemb_grid = posemb_grid.permute(0, 2, 3, 1).reshape(1, gs_new * gs_new, -1)
     posemb = torch.cat([posemb_tok, posemb_grid], dim=1)
     return posemb
+
 
 def checkpoint_filter_fn(state_dict, model):
     """ convert patch embedding weight from manual patchify + linear proj to conv"""
