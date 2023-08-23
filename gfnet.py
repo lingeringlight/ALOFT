@@ -96,20 +96,20 @@ class GlobalFilter(nn.Module):
         img_abs, img_pha = torch.abs(img_fft), torch.angle(img_fft)
 
         if low_or_high == 0:
-            img_abs = torch.fft.fftshift(img_abs, dim=(1, 2))
+            img_abs = torch.fft.fftshift(img_abs, dim=(1))
 
         h_crop = int(h * sqrt(ratio))
         w_crop = int(w * sqrt(ratio))
         h_start = h // 2 - h_crop // 2
-        w_start = w - w_crop
+        w_start = 0
 
         img_abs_ = img_abs.clone()
         if noise_mode != 0:
             if uncertainty_model != 0:
                 if uncertainty_model == 1:
                     # batch level modeling
-                    miu = torch.mean(img_abs_[:, h_start:h_start + h_crop, w_start:, :], dim=(1, 2), keepdim=True)
-                    var = torch.var(img_abs_[:, h_start:h_start + h_crop, w_start:, :], dim=(1, 2), keepdim=True)
+                    miu = torch.mean(img_abs_[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :], dim=(1, 2), keepdim=True)
+                    var = torch.var(img_abs_[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :], dim=(1, 2), keepdim=True)
                     sig = (var + self.eps).sqrt()  # Bx1x1xC
 
                     var_of_miu = torch.var(miu, dim=0, keepdim=True)
@@ -138,32 +138,32 @@ class GlobalFilter(nn.Module):
                         gamma = self._reparameterize(mu=sig, std=1., epsilon_norm=epsilon_norm_sig)
 
                     # adjust statistics for each sample
-                    img_abs[:, h_start:h_start + h_crop, w_start:, :] = gamma * (
-                            img_abs[:, h_start:h_start + h_crop, w_start:, :] - miu) / sig + beta
+                    img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :] = gamma * (
+                            img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :] - miu) / sig + beta
 
                 elif uncertainty_model == 2:
                     # element level modeling
-                    miu_of_elem = torch.mean(img_abs_[:, h_start:h_start + h_crop, w_start:, :], dim=0, keepdim=True)
-                    var_of_elem = torch.var(img_abs_[:, h_start:h_start + h_crop, w_start:, :], dim=0, keepdim=True)
+                    miu_of_elem = torch.mean(img_abs_[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :], dim=0, keepdim=True)
+                    var_of_elem = torch.var(img_abs_[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :], dim=0, keepdim=True)
                     sig_of_elem = (var_of_elem + self.eps).sqrt()  # 1xHxWxC
 
                     if gauss_or_uniform == 0:
-                        epsilon_sig = torch.randn_like(img_abs[:, h_start:h_start + h_crop, w_start:, :])  # BxHxWxC N(0,1)
+                        epsilon_sig = torch.randn_like(img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :])  # BxHxWxC N(0,1)
                         gamma = epsilon_sig * sig_of_elem * self.factor
                     elif gauss_or_uniform == 1:
-                        epsilon_sig = torch.rand_like(img_abs[:, h_start:h_start + h_crop, w_start:, :]) * 2 - 1.  # U(-1,1)
+                        epsilon_sig = torch.rand_like(img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :]) * 2 - 1.  # U(-1,1)
                         gamma = epsilon_sig * sig_of_elem * self.factor
                     else:
                         epsilon_sig = torch.randn_like(
-                            img_abs[:, h_start:h_start + h_crop, w_start:, :])  # BxHxWxC N(0,1)
+                            img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :])  # BxHxWxC N(0,1)
                         gamma = epsilon_sig * self.factor
 
-                    img_abs[:, h_start:h_start + h_crop, w_start:, :] = img_abs[:, h_start:h_start + h_crop, w_start:,
+                    img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :] = img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop,
                                                                         :] + gamma
         else:
             pass
         if low_or_high == 0:
-            img_abs = torch.fft.ifftshift(img_abs, dim=(1, 2))  # recover
+            img_abs = torch.fft.ifftshift(img_abs, dim=(1))  # recover
 
         img_mix = img_abs * (np.e ** (1j * img_pha))
         return img_mix
