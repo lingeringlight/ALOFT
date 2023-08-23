@@ -47,7 +47,6 @@ def get_args_parser():
     parser.add_argument('--uncertainty_model', default=2,  type=int, help="1:batch+mean 2:batch+element")
     parser.add_argument('--uncertainty_factor', default=1.0,  type=float)
     parser.add_argument('--mask_radio', default=0.5,  type=float)
-    parser.add_argument('--low_or_high', default=0,  type=int, help="modify low freq or high freq")
     parser.add_argument('--gauss_or_uniform', default=0,  type=int, help="0: gaussian; 1: uniform; 2: random")
     parser.add_argument('--noise_layers', default=[0, 1, 2, 3],  nargs="+", type=int, help="where to use augmentation.")
 
@@ -285,7 +284,7 @@ def main(args):
             mask_radio=args.mask_radio,
             mask_alpha=args.mask_alpha,
             noise_mode=args.noise_mode,
-            low_or_high=args.low_or_high, uncertainty_model=args.uncertainty_model, perturb_prob=args.perturb_prob,
+            uncertainty_model=args.uncertainty_model, perturb_prob=args.perturb_prob,
             noise_layers=args.noise_layers, gauss_or_uniform=args.gauss_or_uniform,
         )
     elif args.arch == 'gfnet-h-s':
@@ -300,7 +299,7 @@ def main(args):
             mask_radio=args.mask_radio,
             mask_alpha=args.mask_alpha,
             noise_mode=args.noise_mode,
-            low_or_high=args.low_or_high, uncertainty_model=args.uncertainty_model, perturb_prob=args.perturb_prob,
+            uncertainty_model=args.uncertainty_model, perturb_prob=args.perturb_prob,
             noise_layers=args.noise_layers, gauss_or_uniform=args.gauss_or_uniform,
         )
     else:
