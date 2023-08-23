@@ -21,7 +21,7 @@ do
       --uncertainty_factor 0.9 \
       --mask_radio 0.5 \
       --eval 0 \
-      --resume '' \
+      --resume ''
   done
 done
 
