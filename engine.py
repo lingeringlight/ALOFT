@@ -19,39 +19,6 @@ import random
 import torch.nn.functional as F
 
 
-def mixup_criterion(inputs, targets, lam, perm):
-    pred = F.log_softmax(inputs, dim=1)
-    targets = targets.view(-1, 1)
-
-    pred_1 = torch.gather(pred, dim=-1, index=targets)
-    pred_2 = torch.gather(pred, dim=-1, index=targets[perm])
-
-    pred = lam * pred_1 + lam * pred_2
-    loss = torch.mean(-1 * pred)
-    return loss
-
-    # class_mask = F.one_hot(targets, class_num)
-    # class_mask_ = class_mask[perm]
-    # class_mask = lam * class_mask + (1 - lam) * class_mask_
-
-
-def compute_kl_loss(p, q, pad_mask=None, T=10):
-    p_T = p / T
-    q_T = q / T
-    p_loss = F.kl_div(F.log_softmax(p_T, dim=-1), F.softmax(q_T, dim=-1), reduction='none')
-    q_loss = F.kl_div(F.log_softmax(q_T, dim=-1), F.softmax(p_T, dim=-1), reduction='none')
-
-    if pad_mask is not None:
-        p_loss.masked_fill_(pad_mask, 0.)
-        q_loss.masked_fill_(pad_mask, 0.)
-
-    p_loss = p_loss.mean()
-    q_loss = q_loss.mean()
-
-    loss = (p_loss + q_loss) / 2
-    return loss
-
-
 def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
