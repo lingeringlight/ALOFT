@@ -55,7 +55,7 @@ class GlobalFilter(nn.Module):
     def __init__(self, dim, h=14, w=8,
                  mask_radio=0.1, mask_alpha=0.5,
                  noise_mode=1,
-                 low_or_high=0, uncertainty_model=0, perturb_prob=0.5,
+                 uncertainty_model=0, perturb_prob=0.5,
                  uncertainty_factor=1.0,
                  noise_layer_flag=0, gauss_or_uniform=0,):
         super().__init__()
@@ -70,7 +70,6 @@ class GlobalFilter(nn.Module):
 
         self.alpha = mask_alpha
 
-        self.low_or_high = low_or_high
 
         self.eps = 1e-6
         self.factor = uncertainty_factor
@@ -85,7 +84,7 @@ class GlobalFilter(nn.Module):
         return mu_t
 
     def spectrum_noise(self, img_fft, ratio=1.0, noise_mode=1,
-                       low_or_high=0, uncertainty_model=0, gauss_or_uniform=0):
+                       uncertainty_model=0, gauss_or_uniform=0):
         """Input image size: ndarray of [H, W, C]"""
         """noise_mode: 1 amplitude; 2: phase 3:both"""
         """uncertainty_model: 1 batch-wise modeling 2: channel-wise modeling 3:token-wise modeling"""
@@ -95,8 +94,7 @@ class GlobalFilter(nn.Module):
 
         img_abs, img_pha = torch.abs(img_fft), torch.angle(img_fft)
 
-        if low_or_high == 0:
-            img_abs = torch.fft.fftshift(img_abs, dim=(1))
+        img_abs = torch.fft.fftshift(img_abs, dim=(1))
 
         h_crop = int(h * sqrt(ratio))
         w_crop = int(w * sqrt(ratio))
@@ -138,8 +136,8 @@ class GlobalFilter(nn.Module):
                         gamma = self._reparameterize(mu=sig, std=1., epsilon_norm=epsilon_norm_sig)
 
                     # adjust statistics for each sample
-                    img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :] = gamma * (
-                            img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :] - miu) / sig + beta
+                    img_abs[:, h_start:h_start + h_crop, w_start:w_start+w_crop, :] = gamma * (
+                            img_abs[:, h_start:h_start + h_crop, w_start:w_start+w_crop, :] - miu) / sig + beta
 
                 elif uncertainty_model == 2:
                     # element level modeling
@@ -158,17 +156,13 @@ class GlobalFilter(nn.Module):
                             img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :])  # BxHxWxC N(0,1)
                         gamma = epsilon_sig * self.factor
 
-                    img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :] = img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop,
-                                                                        :] + gamma
-        else:
-            pass
-        if low_or_high == 0:
-            img_abs = torch.fft.ifftshift(img_abs, dim=(1))  # recover
-
+                    img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :] = \
+                        img_abs[:, h_start:h_start + h_crop, w_start:w_start + w_crop, :] + gamma
+        img_abs = torch.fft.ifftshift(img_abs, dim=(1))  # recover
         img_mix = img_abs * (np.e ** (1j * img_pha))
         return img_mix
 
-    def forward(self, x, layer_index=0, spatial_size=None):
+    def forward(self, x, spatial_size=None):
         B, N, C = x.shape
         if spatial_size is None:
             a = b = int(math.sqrt(N))
@@ -195,7 +189,7 @@ class Block(nn.Module):
     def __init__(self, dim, mlp_ratio=4., drop=0., drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, h=14, w=8,
                  mask_radio=0.1, mask_alpha=0.5,
                  noise_mode=1,
-                 low_or_high=0, uncertainty_model=0, perturb_prob=0.5,
+                 uncertainty_model=0, perturb_prob=0.5,
                  uncertainty_factor=1.0,
                  gauss_or_uniform=0,):
         super().__init__()
@@ -204,7 +198,7 @@ class Block(nn.Module):
                                    mask_radio=mask_radio,
                                    mask_alpha=mask_alpha,
                                    noise_mode=noise_mode,
-                                   low_or_high=low_or_high, uncertainty_model=uncertainty_model, perturb_prob=perturb_prob,
+                                   uncertainty_model=uncertainty_model, perturb_prob=perturb_prob,
                                    uncertainty_factor=uncertainty_factor, noise_layer_flag=1,
                                    gauss_or_uniform=gauss_or_uniform,)
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
@@ -222,7 +216,7 @@ class Block(nn.Module):
 class BlockLayerScale(nn.Module):
     def __init__(self, dim, mlp_ratio=4., drop=0., drop_path=0., act_layer=nn.GELU,
                  norm_layer=nn.LayerNorm, h=14, w=8, init_values=1e-5,
-                 mask_radio=0.1, mask_alpha=0.5, noise_mode=1, low_or_high=0,
+                 mask_radio=0.1, mask_alpha=0.5, noise_mode=1,
                  uncertainty_model=0, perturb_prob=0.5, uncertainty_factor=1.0,
                  layer_index=0, noise_layers=[0, 1, 2, 3], gauss_or_uniform=0,):
         super().__init__()
@@ -236,7 +230,7 @@ class BlockLayerScale(nn.Module):
                                    mask_radio=mask_radio,
                                    mask_alpha=mask_alpha,
                                    noise_mode=noise_mode,
-                                   low_or_high=low_or_high, uncertainty_model=uncertainty_model, perturb_prob=perturb_prob,
+                                   uncertainty_model=uncertainty_model, perturb_prob=perturb_prob,
                                    uncertainty_factor=uncertainty_factor,
                                    noise_layer_flag=noise_layer_flag, gauss_or_uniform=gauss_or_uniform,)
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
@@ -249,7 +243,7 @@ class BlockLayerScale(nn.Module):
 
     def forward(self, input):
         x = input
-        x = x + self.drop_path(self.gamma * self.mlp(self.norm2(self.filter(self.norm1(x), self.layer_index))))
+        x = x + self.drop_path(self.gamma * self.mlp(self.norm2(self.filter(self.norm1(x)))))
         return x
 
 
@@ -428,7 +422,7 @@ class GFNetPyramid(nn.Module):
                  mlp_ratio=[4, 4, 4, 4],
                  drop_rate=0., drop_path_rate=0., norm_layer=None, init_values=0.001, no_layerscale=False, dropcls=0,
                  mask_radio=0.1, mask_alpha=0.5, noise_mode=1,
-                 low_or_high=0, uncertainty_model=0,
+                 uncertainty_model=0,
                  perturb_prob=0.5,
                  uncertainty_factor=1.0,
                  noise_layers=[0, 1, 2, 3], gauss_or_uniform=0,):
@@ -491,12 +485,12 @@ class GFNetPyramid(nn.Module):
                     Block(
                     dim=embed_dim[i], mlp_ratio=mlp_ratio[i],
                     drop=drop_rate, drop_path=dpr[cur + j], norm_layer=norm_layer, h=h, w=w,
-                    mask_radio=mask_radio,
+                        mask_radio=mask_radio,
                         mask_alpha=mask_alpha,
-                    noise_mode=noise_mode, low_or_high=low_or_high,
+                        noise_mode=noise_mode,
                         uncertainty_model=uncertainty_model, perturb_prob=perturb_prob,
                         uncertainty_factor=uncertainty_factor,
-                         gauss_or_uniform=gauss_or_uniform,
+                        gauss_or_uniform=gauss_or_uniform,
                     )
                 for j in range(depth[i])
                 ])
@@ -506,7 +500,7 @@ class GFNetPyramid(nn.Module):
                     BlockLayerScale(
                         dim=embed_dim[i], mlp_ratio=mlp_ratio[i],
                         drop=drop_rate, drop_path=dpr[cur + j], norm_layer=norm_layer, h=h, w=w, init_values=init_values,
-                        mask_radio=mask_radio, mask_alpha=mask_alpha, noise_mode=noise_mode, low_or_high=low_or_high,
+                        mask_radio=mask_radio, mask_alpha=mask_alpha, noise_mode=noise_mode,
                         uncertainty_model=uncertainty_model, perturb_prob=perturb_prob,
                         uncertainty_factor=uncertainty_factor,
                         layer_index=i,
