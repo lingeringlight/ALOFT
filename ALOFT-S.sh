@@ -3,7 +3,7 @@
 device=0
 data='PACS'
 
-for t in `seq 0 2`
+for t in `seq 0 4`
 do
   for domain in `seq 0 3`
   do
